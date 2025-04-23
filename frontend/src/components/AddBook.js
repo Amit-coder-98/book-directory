@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 // Use environment variable with fallback
-const API_URL = process.env.REACT_APP_API_URL || 'https://book-directory-backend-3h6l.onrender.com';
+const API_URL = process.env.REACT_APP_API_URL || 'https://book-directory-backend.onrender.com';
+
+// Configure axios defaults
+axios.defaults.timeout = 15000; // 15 seconds timeout
 
 function AddBook() {
     const navigate = useNavigate();
@@ -30,31 +33,29 @@ function AddBook() {
             console.log('Sending request to:', `${API_URL}/api/books`);
             console.log('Book data:', book);
 
-            const response = await axios.post(`${API_URL}/api/books`, book);
-            console.log('Response:', response.data);
-            navigate('/');
+            const response = await axios.post(`${API_URL}/api/books`, book, {
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                validateStatus: function (status) {
+                    return status >= 200 && status < 500;
+                }
+            });
+
+            if (response.status === 201) {
+                navigate('/');
+            } else {
+                throw new Error(response.data.message || 'Failed to add book');
+            }
         } catch (error) {
             console.error('Error adding book:', error);
             
-            // Handle different types of errors
-            if (error.response) {
-                // Server responded with an error
-                const errorMessage = error.response.data.message || error.response.data.error;
-                if (error.response.data.details) {
-                    // Handle validation errors
-                    const details = Object.values(error.response.data.details)
-                        .filter(detail => detail)
-                        .join(', ');
-                    setError(details);
-                } else {
-                    setError(errorMessage || 'Failed to add book. Please check your input.');
-                }
-            } else if (error.request) {
-                // Request was made but no response received
-                setError('Unable to connect to the server. Please try again later.');
+            if (error.code === 'ECONNABORTED') {
+                setError('Connection timed out. The server might be starting up, please try again in a minute.');
+            } else if (!error.response) {
+                setError('Unable to connect to the server. Please check your internet connection and try again.');
             } else {
-                // Something else went wrong
-                setError('An unexpected error occurred. Please try again.');
+                setError(error.response?.data?.message || 'Failed to add book. Please try again.');
             }
         } finally {
             setLoading(false);

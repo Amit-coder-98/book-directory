@@ -7,17 +7,30 @@ const app = express();
 
 // CORS configuration
 app.use(cors({
-    origin: '*', // Allow all origins in development
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type']
+    allowedHeaders: ['Content-Type'],
+    credentials: true
 }));
 
 // Middleware
 app.use(express.json());
 
-// Request body logging for debugging
+// Health check endpoint
+app.get('/health', (req, res) => {
+    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+    res.json({ 
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        dbStatus
+    });
+});
+
+// Request logging middleware
 app.use((req, res, next) => {
-    if (req.method === 'POST' || req.method === 'PUT') {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    console.log('Headers:', req.headers);
+    if (['POST', 'PUT'].includes(req.method)) {
         console.log('Request Body:', req.body);
     }
     next();
@@ -37,13 +50,15 @@ const connectDB = async () => {
         const baseUri = uri.split('?')[0];
         
         await mongoose.connect(baseUri, {
-            dbName: 'bookDirectory'
+            dbName: 'bookDirectory',
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS: 45000,
+            connectTimeoutMS: 10000
         });
         
         console.log('MongoDB Connected Successfully');
     } catch (error) {
         console.error('MongoDB Connection Error:', error.message);
-        // Retry connection after 5 seconds
         setTimeout(connectDB, 5000);
     }
 };
@@ -59,6 +74,7 @@ mongoose.connection.on('error', (err) => {
 
 mongoose.connection.on('disconnected', () => {
     console.log('Mongoose disconnected');
+    setTimeout(connectDB, 5000);
 });
 
 // Connect to MongoDB
@@ -66,29 +82,20 @@ connectDB();
 
 // Routes
 const bookRoutes = require('./routes/bookRoutes');
-
-// Add request logging middleware
-app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-    next();
-});
-
 app.use('/api/books', bookRoutes);
-
-// Basic route for testing
-app.get('/', (req, res) => {
-    res.json({ message: 'Welcome to Book Directory API' });
-});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error('Error details:', err);
     res.status(err.status || 500).json({ 
         message: err.message || 'Something went wrong!',
-        error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        error: process.env.NODE_ENV === 'development' ? err.stack : 'Internal server error'
     });
 });
 
 // Port configuration
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const server = app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// Handle server timeouts
+server.timeout = 60000; // 60 seconds timeout
