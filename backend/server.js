@@ -7,12 +7,21 @@ const app = express();
 
 // CORS configuration
 app.use(cors({
-    origin: ['http://localhost:3000', 'https://book-directory-frontend.onrender.com'],
-    credentials: true
+    origin: '*', // Allow all origins in development
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type']
 }));
 
 // Middleware
 app.use(express.json());
+
+// Request body logging for debugging
+app.use((req, res, next) => {
+    if (req.method === 'POST' || req.method === 'PUT') {
+        console.log('Request Body:', req.body);
+    }
+    next();
+});
 
 // MongoDB connection with proper error handling
 const connectDB = async () => {
@@ -73,8 +82,11 @@ app.get('/', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ message: 'Something went wrong!', error: err.message });
+    console.error('Error details:', err);
+    res.status(err.status || 500).json({ 
+        message: err.message || 'Something went wrong!',
+        error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
 });
 
 // Port configuration
