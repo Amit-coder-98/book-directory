@@ -9,11 +9,23 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// MongoDB connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/bookDirectory';
-mongoose.connect(MONGODB_URI)
-    .then(() => console.log('Connected to MongoDB'))
-    .catch(err => console.error('MongoDB connection error:', err));
+// MongoDB connection with proper error handling
+const connectDB = async () => {
+    try {
+        const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/bookDirectory';
+        await mongoose.connect(MONGODB_URI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        });
+        console.log('MongoDB Connected Successfully');
+    } catch (error) {
+        console.error('MongoDB Connection Error:', error.message);
+        // Retry connection after 5 seconds
+        setTimeout(connectDB, 5000);
+    }
+};
+
+connectDB();
 
 // Routes
 const bookRoutes = require('./routes/bookRoutes');
