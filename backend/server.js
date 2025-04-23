@@ -12,11 +12,22 @@ app.use(express.json());
 // MongoDB connection with proper error handling
 const connectDB = async () => {
     try {
-        const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/bookDirectory';
+        const uri = process.env.MONGODB_URI;
+        if (!uri) {
+            throw new Error('MongoDB URI is not defined in environment variables');
+        }
+
         console.log('Attempting to connect to MongoDB...');
-        await mongoose.connect(MONGODB_URI, {
-            dbName: 'bookDirectory' // Explicitly specify database name
+        
+        // Remove any query parameters from the connection string
+        const baseUri = uri.split('?')[0];
+        
+        await mongoose.connect(baseUri, {
+            dbName: 'bookDirectory',
+            serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+            socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
         });
+        
         console.log('MongoDB Connected Successfully');
     } catch (error) {
         console.error('MongoDB Connection Error:', error.message);
@@ -25,6 +36,20 @@ const connectDB = async () => {
     }
 };
 
+// Handle MongoDB connection events
+mongoose.connection.on('connected', () => {
+    console.log('Mongoose connected to MongoDB');
+});
+
+mongoose.connection.on('error', (err) => {
+    console.error('Mongoose connection error:', err.message);
+});
+
+mongoose.connection.on('disconnected', () => {
+    console.log('Mongoose disconnected');
+});
+
+// Connect to MongoDB
 connectDB();
 
 // Routes
