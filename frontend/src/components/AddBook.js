@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL;
+// Use environment variable with fallback
+const API_URL = process.env.REACT_APP_API_URL || 'https://book-directory-backend.onrender.com';
 
 function AddBook() {
     const navigate = useNavigate();
@@ -12,6 +13,7 @@ function AddBook() {
         category: '',
         publishedYear: ''
     });
+    const [error, setError] = useState('');
 
     const handleChange = (e) => {
         setBook({ ...book, [e.target.name]: e.target.value });
@@ -19,17 +21,22 @@ function AddBook() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setError('');
         try {
-            await axios.post(`${API_URL}/api/books`, book);
+            console.log('Sending request to:', `${API_URL}/api/books`);
+            const response = await axios.post(`${API_URL}/api/books`, book);
+            console.log('Response:', response.data);
             navigate('/');
         } catch (error) {
             console.error('Error adding book:', error);
+            setError(error.response?.data?.message || 'Error adding book. Please try again.');
         }
     };
 
     return (
         <div className="add-book">
             <h2>Add New Book</h2>
+            {error && <div className="error-message" style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}
             <form onSubmit={handleSubmit}>
                 <div className="form-group">
                     <label>Title:</label>

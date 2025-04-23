@@ -5,8 +5,13 @@ require('dotenv').config();
 
 const app = express();
 
+// CORS configuration
+app.use(cors({
+    origin: ['http://localhost:3000', 'https://book-directory-frontend.onrender.com'],
+    credentials: true
+}));
+
 // Middleware
-app.use(cors());
 app.use(express.json());
 
 // MongoDB connection with proper error handling
@@ -23,9 +28,7 @@ const connectDB = async () => {
         const baseUri = uri.split('?')[0];
         
         await mongoose.connect(baseUri, {
-            dbName: 'bookDirectory',
-            serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
-            socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+            dbName: 'bookDirectory'
         });
         
         console.log('MongoDB Connected Successfully');
@@ -54,11 +57,24 @@ connectDB();
 
 // Routes
 const bookRoutes = require('./routes/bookRoutes');
+
+// Add request logging middleware
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    next();
+});
+
 app.use('/api/books', bookRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {
     res.json({ message: 'Welcome to Book Directory API' });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ message: 'Something went wrong!', error: err.message });
 });
 
 // Port configuration
